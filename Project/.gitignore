@@ -1,0 +1,12 @@
+# Distributed Video Transcoder - Node.js Project
+
+## node_modules
+node_modules/
+
+## Environment variables
+.env
+
+## Temp files
+tmp/
+temp/
+*.tmp
