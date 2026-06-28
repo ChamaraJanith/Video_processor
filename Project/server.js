@@ -111,6 +111,40 @@ app.get('/download/:jobId/:format', async (req, res) => {
   }
 });
 
+// Check job status by inspecting S3 for output files
+app.get('/status/:jobId', async (req, res) => {
+  const { jobId } = req.params;
+  const formats = ['720p', '480p', '360p'];
+
+  const checkFormat = async (fmt) => {
+    try {
+      await s3.send(new HeadObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: `outputs/${jobId}/${fmt}.mp4`,
+      }));
+      return { format: fmt, ready: true };
+    } catch {
+      return { format: fmt, ready: false };
+    }
+  };
+
+  try {
+    const results = await Promise.all(formats.map(checkFormat));
+    const completed = results.filter(r => r.ready).map(r => r.format);
+    const allDone = completed.length === formats.length;
+
+    res.json({
+      jobId,
+      status: allDone ? 'completed' : completed.length > 0 ? 'processing' : 'queued',
+      completedFormats: completed,
+      totalFormats: formats,
+      progress: Math.round((completed.length / formats.length) * 100),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Start Server ──────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
